@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // You can add other config here like reactStrictMode, images, etc.
 };
 
 export default nextConfig;
