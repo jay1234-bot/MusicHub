@@ -46,17 +46,14 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
-      const homeRes = await getHome();
-      const homeData = await homeRes.json();
+      const homeData = await getHome();
       setData(homeData.data);
 
-      const hindiRes = await searchSong("hindi");
-      const hindiData = await hindiRes.json();
+      const hindiData = await searchSong("hindi");
       setHindiSongs(hindiData.data.results);
     } catch (error) {
-      setError("Failed to load music data. Showing demo content.");
-      setData({ trending: { songs: DEMO_SONGS }, albums: DEMO_ALBUMS, artists: DEMO_ARTISTS });
-      setHindiSongs(DEMO_SONGS);
+      setError("Failed to load music data. Please try again later.");
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -87,7 +84,7 @@ export default function Home() {
             animate={!loading ? "show" : "hidden"}
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
           >
-            {!loading && hindiSongs.length > 0
+            {hindiSongs?.length > 0
               ? hindiSongs.map((song) => (
                   <motion.div variants={item} key={song.id}>
                     <SongCard
@@ -99,9 +96,11 @@ export default function Home() {
                     />
                   </motion.div>
                 ))
-              : Array.from({ length: 6 }).map((_, i) => (
+              : !loading && <p>No songs found.</p>
+            }
+            {loading && Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
-                ))}
+            ))}
           </motion.div>
         </section>
 
@@ -114,21 +113,23 @@ export default function Home() {
             animate={!loading ? "show" : "hidden"}
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
           >
-            {!loading && data?.trending.songs.length > 0
+            {data?.trending?.songs?.length > 0
               ? data.trending.songs.map((song) => (
                   <motion.div variants={item} key={song.id}>
                     <SongCard
                       id={song.id}
                       title={song.name}
-                      artist={song.primaryArtists}
+                      artist={song.artists.map(a => a.name).join(', ')}
                       image={song.image[2].url}
                       data={data.trending.songs}
                     />
                   </motion.div>
                 ))
-              : Array.from({ length: 6 }).map((_, i) => (
+              : !loading && <p>No trending songs found.</p>
+            }
+             {loading && Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
-                ))}
+            ))}
           </motion.div>
         </section>
 
@@ -141,23 +142,25 @@ export default function Home() {
             animate={!loading ? "show" : "hidden"}
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
           >
-            {!loading && data?.albums.length > 0
+            {data?.albums?.length > 0
               ? data.albums.map((album) => (
                   <motion.div variants={item} key={album.id}>
                     <AlbumCard
                       id={album.id}
                       title={album.name}
-                      artist={album.artists[0]?.name}
+                      artist={album.artists.map(a => a.name).join(', ')}
                       image={album.image[2].url}
                     />
                   </motion.div>
                 ))
-              : Array.from({ length: 6 }).map((_, i) => (
+              : !loading && <p>No albums found.</p>
+            }
+            {loading && Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
-                ))}
+            ))}
           </motion.div>
         </section>
-
+        
         {/* Top Artists */}
         <section>
           <h2 className="text-2xl font-semibold mb-4">Top Artists</h2>
@@ -167,7 +170,7 @@ export default function Home() {
             animate={!loading ? "show" : "hidden"}
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
           >
-            {!loading && data?.artists.length > 0
+            {data?.artists?.length > 0
               ? data.artists.map((artist) => (
                   <motion.div variants={item} key={artist.id}>
                     <ArtistCard
@@ -177,9 +180,11 @@ export default function Home() {
                     />
                   </motion.div>
                 ))
-              : Array.from({ length: 6 }).map((_, i) => (
+              : !loading && <p>No artists found.</p>
+            }
+            {loading && Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
-                ))}
+            ))}
           </motion.div>
         </section>
       </div>
