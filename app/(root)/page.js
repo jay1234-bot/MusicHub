@@ -25,13 +25,26 @@ const item = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5 } },
 };
 
+const DEMO_SONGS = [
+  { id: "demo1", name: "Demo Song 1", primaryArtists: "Demo Artist", image: [null, null, { url: "/album.png" }] },
+  { id: "demo2", name: "Demo Song 2", primaryArtists: "Demo Artist", image: [null, null, { url: "/album.png" }] },
+];
+const DEMO_ALBUMS = [
+  { id: "demoA1", name: "Demo Album 1", artists: [{ name: "Demo Artist" }], image: [null, null, { url: "/album.png" }] },
+];
+const DEMO_ARTISTS = [
+  { id: "demoAr1", name: "Demo Artist", image: [null, null, { url: "/album.png" }] },
+];
+
 export default function Home() {
   const [data, setData] = useState(null);
   const [hindiSongs, setHindiSongs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
+    setError("");
     try {
       const homeRes = await getHome();
       const homeData = await homeRes.json();
@@ -41,7 +54,9 @@ export default function Home() {
       const hindiData = await hindiRes.json();
       setHindiSongs(hindiData.data.results);
     } catch (error) {
-      console.error("Failed to fetch data:", error);
+      setError("Failed to load music data. Showing demo content.");
+      setData({ trending: { songs: DEMO_SONGS }, albums: DEMO_ALBUMS, artists: DEMO_ARTISTS });
+      setHindiSongs(DEMO_SONGS);
     } finally {
       setLoading(false);
     }
@@ -59,7 +74,9 @@ export default function Home() {
           <RotateCcw className={`w-6 h-6 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-
+      {error && (
+        <div className="text-center text-red-500 mb-4">{error}</div>
+      )}
       <div className="px-6 md:px-20 lg:px-32 space-y-12">
         {/* Top Hindi Songs */}
         <section>

@@ -63,9 +63,16 @@ export default function Player() {
   }, [data]);
 
   const togglePlayPause = () => {
-    const newPlayingState = !playing;
-    setPlaying(newPlayingState);
-    localStorage.setItem("p", newPlayingState ? "true" : "false");
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+      localStorage.setItem("p", "false");
+    } else {
+      audioRef.current.play();
+      setPlaying(true);
+      localStorage.setItem("p", "true");
+    }
   };
 
   const loopSong = () => {
@@ -146,6 +153,16 @@ export default function Player() {
                     ) : (
                       <Play className="h-5 w-5 ml-0.5" />
                     )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-white/70 hover:text-white"
+                    asChild
+                  >
+                    <Link href={`/${values.music}`} title="Go to Player">
+                      <ExternalLink className="h-5 w-5" />
+                    </Link>
                   </Button>
                   <Button
                     size="icon"

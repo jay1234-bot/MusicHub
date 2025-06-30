@@ -7,7 +7,6 @@ import {
   Play,
   Repeat,
   Loader2,
-  Repeat1,
   Share2,
   RedoDot,
   UndoDot,
@@ -21,11 +20,11 @@ import Link from "next/link";
 import { NextContext } from "@/hooks/use-context";
 import { useMusic } from "@/components/music-provider";
 import { motion, AnimatePresence } from "framer-motion";
-import { AudioVisualizer, LiveAudioVisualizer } from "react-audio-visualize";
+import { AudioVisualizer } from "react-audio-visualize";
 
 export default function Player({ id }) {
   const [data, setData] = useState(null);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const audioRef = useRef(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -57,6 +56,11 @@ export default function Player({ id }) {
 
   useEffect(() => {
     if (audioRef.current) {
+      const lastTime = localStorage.getItem(`pos-${id}`);
+      if (lastTime) {
+        audioRef.current.currentTime = parseFloat(lastTime);
+        setCurrentTime(parseFloat(lastTime));
+      }
       if (current) {
         audioRef.current.currentTime = parseFloat(current + 1);
       }
@@ -65,6 +69,7 @@ export default function Player({ id }) {
         setCurrentTime(audio.currentTime);
         setDuration(audio.duration);
         setCurrent(audio.currentTime);
+        localStorage.setItem(`pos-${id}`, audio.currentTime);
       };
       audio.addEventListener("timeupdate", handleTimeUpdate);
       return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
@@ -81,7 +86,16 @@ export default function Player({ id }) {
     )}`;
   };
 
-  const togglePlayPause = () => setPlaying(!playing);
+  const togglePlayPause = () => {
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      audioRef.current.play();
+      setPlaying(true);
+    }
+  };
 
   const loopSong = () => {
     if (audioRef.current) {
@@ -90,133 +104,165 @@ export default function Player({ id }) {
     }
   };
 
-  const handleShare = () => toast("Coming soon!");
-  const downloadSong = () => toast("Coming soon!");
+  const downloadSong = async () => {
+    if (!audioURL) return toast("No audio to download");
+    setIsDownloading(true);
+    try {
+      const response = await fetch(audioURL);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = `${data.name}.mp3`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success("Download started!");
+    } catch (e) {
+      toast.error("Download failed!");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      const shareUrl = window.location.href;
+      if (navigator.share) {
+        await navigator.share({
+          title: data.name,
+          text: `Listen to ${data.name} by ${data.artists.primary[0]?.name}`,
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success("Link copied to clipboard!");
+      }
+    } catch (e) {
+      toast.error("Share failed!");
+    }
+  };
 
   return (
-    <div className="relative mb-3 mt-10 p-4 md:p-8">
+    <div className="relative flex flex-col items-center justify-center min-h-[60vh] py-8">
       <AnimatePresence>
         {!data ? (
-          <Skeleton className="w-full h-[60vh] rounded-2xl" />
+          <Skeleton className="w-full h-[350px] rounded-2xl" />
         ) : (
           <motion.div
             key={data.id}
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+            className="w-full max-w-xl mx-auto flex flex-col items-center glassy rounded-2xl shadow-2xl p-6"
+            style={{ background: "rgba(30,30,40,0.7)", backdropFilter: "blur(16px)" }}
           >
             {/* Album Art */}
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="lg:col-span-2 relative aspect-square rounded-2xl shadow-2xl overflow-hidden"
+              className="relative w-40 h-40 rounded-2xl overflow-hidden shadow-lg mb-6"
             >
               <img
                 src={data.image[2].url}
                 alt="song-bg"
-                className="absolute inset-0 w-full h-full object-cover"
+                className="w-full h-full object-cover rounded-2xl"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <div className="absolute bottom-8 left-8 text-white">
-                <h1 className="text-5xl md:text-7xl font-bold">{data.name}</h1>
-                <p className="text-xl md:text-2xl text-white/80 mt-2">
-                  {data.artists.primary[0]?.name}
-                </p>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             </motion.div>
-
+            {/* Song Info */}
+            <div className="text-center mb-4">
+              <h1 className="text-2xl font-bold text-white drop-shadow-lg">{data.name}</h1>
+              <p className="text-base text-white/80 mt-1">{data.artists.primary[0]?.name}</p>
+            </div>
+            {/* Visualizer */}
+            <div className="w-full h-14 flex items-center justify-center mb-2">
+              {audioRef.current && (
+                <AudioVisualizer
+                  ref={visualizerRef}
+                  audioEle={audioRef.current}
+                  width="100%"
+                  height="100%"
+                  barWidth={4}
+                  gap={3}
+                  barColor={"#a1a1aa"}
+                  barPlayedColor={"#f4f4f5"}
+                />
+              )}
+            </div>
+            {/* Seekbar */}
+            <div className="w-full flex flex-col gap-1 mb-2">
+              <Slider
+                onValueChange={(e) => (audioRef.current.currentTime = e[0])}
+                value={[currentTime]}
+                max={duration || 0}
+                className="w-full"
+              />
+              <div className="w-full flex items-center justify-between text-xs text-white/50">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration || 0)}</span>
+              </div>
+            </div>
             {/* Controls */}
-            <div className="flex flex-col justify-between bg-black/20 backdrop-blur-xl rounded-2xl p-6 shadow-2xl">
-              <div className="flex justify-between items-center">
-                <h2 className="font-semibold text-lg text-white">Now Playing</h2>
-                <Music className="w-6 h-6 text-primary" />
-              </div>
-
-              <div className="flex flex-col items-center gap-6 my-auto">
-                <div className="w-full h-20">
-                  {audioRef.current && (
-                    <AudioVisualizer
-                      ref={visualizerRef}
-                      audioEle={audioRef.current}
-                      width="100%"
-                      height="100%"
-                      barWidth={5}
-                      gap={4}
-                      barColor={"#a1a1aa"}
-                      barPlayedColor={"#f4f4f5"}
-                    />
-                  )}
-                </div>
-                <div className="w-full">
-                  <Slider
-                    onValueChange={(e) =>
-                      (audioRef.current.currentTime = e[0])
-                    }
-                    value={[currentTime]}
-                    max={duration || 0}
-                    className="w-full"
-                  />
-                  <div className="w-full flex items-center justify-between text-xs text-white/50 mt-2">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration || 0)}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => (audioRef.current.currentTime -= 10)}
-                  >
-                    <UndoDot className="h-6 w-6 text-white/70" />
-                  </Button>
-                  <Button
-                    size="lg"
-                    className="rounded-full w-20 h-20 bg-white text-black hover:bg-white/90"
-                    onClick={togglePlayPause}
-                  >
-                    {playing ? (
-                      <Pause className="h-10 w-10" />
-                    ) : (
-                      <Play className="h-10 w-10 ml-1" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => (audioRef.current.currentTime += 10)}
-                  >
-                    <RedoDot className="h-6 w-6 text-white/70" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-around items-center">
-                <Button variant="ghost" size="icon" onClick={loopSong}>
-                  <Repeat
-                    className={`h-6 w-6 transition-colors ${
-                      isLooping ? "text-primary" : "text-white/70"
-                    }`}
-                  />
-                </Button>
+            <div className="flex items-center justify-center gap-6 mt-2 mb-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => (audioRef.current.currentTime -= 10)}
+                aria-label="Rewind 10 seconds"
+              >
+                <UndoDot className="h-7 w-7 text-white/70" />
+              </Button>
+              <motion.div whileTap={{ scale: 0.9 }}>
                 <Button
-                  variant="ghost"
                   size="icon"
-                  onClick={downloadSong}
-                  disabled={isDownloading}
+                  className="rounded-full w-16 h-16 bg-white text-black shadow-xl hover:bg-white/90"
+                  onClick={togglePlayPause}
+                  aria-label={playing ? "Pause" : "Play"}
                 >
-                  {isDownloading ? (
-                    <Loader2 className="h-6 w-6 text-white/70 animate-spin" />
+                  {playing ? (
+                    <Pause className="h-8 w-8" />
                   ) : (
-                    <Download className="h-6 w-6 text-white/70" />
+                    <Play className="h-8 w-8 ml-1" />
                   )}
                 </Button>
-                <Button variant="ghost" size="icon" onClick={handleShare}>
-                  <Share2 className="h-6 w-6 text-white/70" />
-                </Button>
-              </div>
+              </motion.div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => (audioRef.current.currentTime += 10)}
+                aria-label="Forward 10 seconds"
+              >
+                <RedoDot className="h-7 w-7 text-white/70" />
+              </Button>
+            </div>
+            {/* Extra Controls */}
+            <div className="flex justify-center items-center gap-6 mt-2">
+              <Button variant="ghost" size="icon" onClick={loopSong} aria-label="Loop">
+                <Repeat
+                  className={`h-6 w-6 transition-colors ${
+                    isLooping ? "text-primary" : "text-white/70"
+                  }`}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={downloadSong}
+                disabled={isDownloading}
+                aria-label="Download"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-6 w-6 text-white/70 animate-spin" />
+                ) : (
+                  <Download className="h-6 w-6 text-white/70" />
+                )}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handleShare} aria-label="Share">
+                <Share2 className="h-6 w-6 text-white/70" />
+              </Button>
             </div>
           </motion.div>
         )}
