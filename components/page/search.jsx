@@ -3,29 +3,77 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Search() {
     const [query, setQuery] = useState("");
     const linkRef = useRef();
     const inpRef = useRef();
+    const [isExpanded, setIsExpanded] = useState(false);
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!query) {
-            router.push("/");
-            return;
-        };
+        if (!query) return;
         linkRef.current.click();
         inpRef.current.blur();
-        setQuery("");
+        setIsExpanded(false);
     };
+
+    const expand = {
+        hidden: { width: 0, opacity: 0 },
+        visible: {
+            width: "100%",
+            opacity: 1,
+            transition: { type: "spring", stiffness: 100, damping: 15 },
+        },
+    };
+
     return (
-        <>
-            <Link href={"/search/" + query} ref={linkRef}></Link>
-            <form onSubmit={handleSubmit} className="flex items-center relative z-10 w-full">
-                <Button variant="ghost" type="submit" size="icon" className="absolute right-0 rounded-xl rounded-l-none bg-none"><SearchIcon className="w-4 h-4" /></Button>
-                <Input ref={inpRef} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" type="search" className="rounded-lg bg-secondary/50" name="query" placeholder="search songs...." />
-            </form>
-        </>
-    )
+        <div className="flex items-center justify-end w-full">
+            <Link href={"/search/" + query} ref={linkRef} className="hidden"></Link>
+            <AnimatePresence>
+                {isExpanded ? (
+                    <motion.form
+                        key="form"
+                        variants={expand}
+                        initial="hidden"
+                        animate="visible"
+                        exit="hidden"
+                        onSubmit={handleSubmit}
+                        className="relative z-10 w-full flex items-center"
+                    >
+                        <Input
+                            ref={inpRef}
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            autoComplete="off"
+                            type="search"
+                            name="query"
+                            placeholder="Search songs, artists, albums..."
+                            className="w-full pl-4 pr-10 py-2 rounded-full bg-background/50 backdrop-blur-sm border-2 border-transparent focus:border-primary/50 transition-all"
+                        />
+                        <Button
+                            variant="ghost"
+                            type="submit"
+                            size="icon"
+                            className="absolute right-2 top-1/2 -translate-y-1/2"
+                        >
+                            <SearchIcon className="w-4 h-4" />
+                        </Button>
+                    </motion.form>
+                ) : (
+                    <motion.div key="button" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setIsExpanded(true)}
+                        >
+                            <SearchIcon className="w-5 h-5" />
+                        </Button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 }

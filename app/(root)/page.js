@@ -1,301 +1,171 @@
-"use client"
+"use client";
+import { getHome, searchSong } from "@/lib/fetch";
+import SongCard from "@/components/cards/song";
 import AlbumCard from "@/components/cards/album";
 import ArtistCard from "@/components/cards/artist";
-import SongCard from "@/components/cards/song";
-import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSongsByQuery, searchAlbumByQuery } from "@/lib/fetch";
-import { RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
-export default function Page() {
-  const [latest, setLatest] = useState([]);
-  const [popular, setPopular] = useState([]);
-  const [albums, setAlbums] = useState([]);
-  const [hindi, setHindi] = useState([]);
-  const [punjabi, setPunjabi] = useState([]);
-  const [english, setEnglish] = useState([]);
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.3,
+    },
+  },
+};
+
+const item = {
+  hidden: { y: 20, opacity: 0 },
+  show: { y: 0, opacity: 1, transition: { duration: 0.5 } },
+};
+
+export default function Home() {
+  const [data, setData] = useState(null);
+  const [hindiSongs, setHindiSongs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     setLoading(true);
-    const [
-      latestData,
-      popularData,
-      albumData,
-      hindiData,
-      punjabiData,
-      englishData,
-    ] = await Promise.all([
-      getSongsByQuery("latest").then((res) => res.json()),
-      getSongsByQuery("trending").then((res) => res.json()),
-      searchAlbumByQuery("latest").then((res) => res.json()),
-      getSongsByQuery("hindi").then((res) => res.json()),
-      getSongsByQuery("punjabi").then((res) => res.json()),
-      getSongsByQuery("english").then((res) => res.json()),
-    ]);
-    setLatest(latestData.data.results);
-    setPopular(popularData.data.results);
-    setAlbums(albumData.data.results);
-    setHindi(hindiData.data.results);
-    setPunjabi(punjabiData.data.results);
-    setEnglish(englishData.data.results);
-    setLoading(false);
+    try {
+      const homeRes = await getHome();
+      const homeData = await homeRes.json();
+      setData(homeData.data);
+
+      const hindiRes = await searchSong("hindi");
+      const hindiData = await hindiRes.json();
+      setHindiSongs(hindiData.data.results);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-  };
-
   return (
-    <main className="px-6 py-5 md:px-20 lg:px-32">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Browse</h1>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={fetchData}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`h-5 w-5 ${loading ? "animate-spin" : ""}`}
-          />
+    <main className="mb-32">
+      <div className="flex justify-between items-center mb-8 px-6 md:px-20 lg:px-32">
+        <h1 className="text-3xl font-bold">Listen Now</h1>
+        <Button variant="ghost" size="icon" onClick={fetchData} disabled={loading}>
+          <RotateCcw className={`w-6 h-6 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="space-y-12"
-      >
-        <motion.div variants={item}>
-          <div className="flex items-center justify-between">
-            <div className="grid">
-              <h1 className="text-2xl font-bold">New Releases</h1>
-              <p className="text-sm text-muted-foreground">
-                Top new released songs.
-              </p>
-            </div>
-          </div>
-          <ScrollArea className="rounded-md mt-4">
-            <div className="flex gap-4 pb-4">
-              {latest.length > 0 && !loading
-                ? latest
-                    .slice()
-                    .map((song) => (
-                      <SongCard
-                        key={song.id}
-                        image={song.image[2].url}
-                        album={song.album}
-                        title={song.name}
-                        artist={song.artists.primary[0].name}
-                        id={song.id}
-                      />
-                    ))
-                : Array.from({ length: 10 }).map((_, i) => (
-                    <SongCard key={i} />
-                  ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden sm:flex" />
-          </ScrollArea>
-        </motion.div>
 
-        <motion.div variants={item}>
-          <h1 className="text-2xl font-bold">Top Albums</h1>
-          <p className="text-sm text-muted-foreground">
-            Top new released albums.
-          </p>
-          <ScrollArea className="rounded-md mt-4">
-            <div className="flex gap-4 pb-4">
-              {albums.length > 0 && !loading
-                ? albums
-                    .slice()
-                    .map((song) => (
-                      <AlbumCard
-                        key={song.id}
-                        lang={song.language}
-                        image={song.image[2].url}
-                        album={song.album}
-                        title={song.name}
-                        artist={song.artists.primary[0].name}
-                        id={`album/${song.id}`}
-                      />
-                    ))
-                : Array.from({ length: 10 }).map((_, i) => (
-                    <SongCard key={i} />
-                  ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden sm:flex" />
-          </ScrollArea>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <h1 className="text-2xl font-bold">Top Hindi</h1>
-          <p className="text-sm text-muted-foreground">
-            Top new released hindi songs.
-          </p>
-          <ScrollArea className="rounded-md mt-4">
-            <div className="flex gap-4 pb-4">
-              {hindi.length > 0 && !loading
-                ? hindi
-                    .slice()
-                    .map((song) => (
-                      <SongCard
-                        key={song.id}
-                        image={song.image[2].url}
-                        album={song.album}
-                        title={song.name}
-                        artist={song.artists.primary[0].name}
-                        id={song.id}
-                      />
-                    ))
-                : Array.from({ length: 10 }).map((_, i) => (
-                    <SongCard key={i} />
-                  ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden sm:flex" />
-          </ScrollArea>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <h1 className="text-2xl font-bold">Top Punjabi</h1>
-          <p className="text-sm text-muted-foreground">
-            Top new released punjabi songs.
-          </p>
-          <ScrollArea className="rounded-md mt-4">
-            <div className="flex gap-4 pb-4">
-              {punjabi.length > 0 && !loading
-                ? punjabi
-                    .slice()
-                    .map((song) => (
-                      <SongCard
-                        key={song.id}
-                        image={song.image[2].url}
-                        album={song.album}
-                        title={song.name}
-                        artist={song.artists.primary[0].name}
-                        id={song.id}
-                      />
-                    ))
-                : Array.from({ length: 10 }).map((_, i) => (
-                    <SongCard key={i} />
-                  ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden sm:flex" />
-          </ScrollArea>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <h1 className="text-2xl font-bold">Top English</h1>
-          <p className="text-sm text-muted-foreground">
-            Top new released english songs.
-          </p>
-          <ScrollArea className="rounded-md mt-4">
-            <div className="flex gap-4 pb-4">
-              {english.length > 0 && !loading
-                ? english
-                    .slice()
-                    .map((song) => (
-                      <SongCard
-                        key={song.id}
-                        image={song.image[2].url}
-                        album={song.album}
-                        title={song.name}
-                        artist={song.artists.primary[0].name}
-                        id={song.id}
-                      />
-                    ))
-                : Array.from({ length: 10 }).map((_, i) => (
-                    <SongCard key={i} />
-                  ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden sm:flex" />
-          </ScrollArea>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <h1 className="text-2xl font-bold">Top Artists</h1>
-          <p className="text-sm text-muted-foreground">
-            Most searched artists.
-          </p>
-          <ScrollArea className="rounded-md mt-4">
-            <div className="flex gap-4 pb-4">
-              {latest.length > 0 && !loading
-                ? [...new Set(latest.map((a) => a.artists.primary[0].id))].map(
-                    (id) => (
-                      <ArtistCard
-                        key={id}
-                        id={id}
-                        image={
-                          latest.find((a) => a.artists.primary[0].id === id)
-                            .artists.primary[0].image[2]?.url ||
-                          `https://az-avatar.vercel.app/api/avatar/?bgColor=0f0f0f0&fontSize=60&text=${
-                            latest
-                              .find((a) => a.artists.primary[0].id === id)
-                              .artists.primary[0].name.split("")[0]
-                              .toUpperCase() || "UN"
-                          }`
-                        }
-                        name={
-                          latest.find((a) => a.artists.primary[0].id === id)
-                            .artists.primary[0].name
-                        }
-                      />
-                    )
-                  )
-                : Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className="grid gap-2">
-                      <Skeleton className="h-[100px] w-[100px] rounded-full" />
-                      <Skeleton className="h-3 w-20" />
-                    </div>
-                  ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden sm:flex" />
-          </ScrollArea>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <h1 className="text-2xl font-bold">Trending Now</h1>
-          <p className="text-sm text-muted-foreground">
-            Most played songs in this week.
-          </p>
-          <ScrollArea className="rounded-md mt-4">
-            <div className="flex gap-4 pb-4">
-              {popular.length > 0 && !loading
-                ? popular.map((song) => (
+      <div className="px-6 md:px-20 lg:px-32 space-y-12">
+        {/* Top Hindi Songs */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Top Hindi Songs</h2>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate={!loading ? "show" : "hidden"}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+          >
+            {!loading && hindiSongs.length > 0
+              ? hindiSongs.map((song) => (
+                  <motion.div variants={item} key={song.id}>
                     <SongCard
-                      key={song.id}
                       id={song.id}
-                      image={song.image[2].url}
                       title={song.name}
-                      artist={song.artists.primary[0].name}
+                      artist={song.primaryArtists}
+                      image={song.image[2].url}
+                      data={hindiSongs}
                     />
-                  ))
-                : Array.from({ length: 10 }).map((_, i) => (
-                    <SongCard key={i} />
-                  ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden sm:flex" />
-          </ScrollArea>
-        </motion.div>
-      </motion.div>
+                  </motion.div>
+                ))
+              : Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
+                ))}
+          </motion.div>
+        </section>
+
+        {/* Trending Songs */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Trending</h2>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate={!loading ? "show" : "hidden"}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+          >
+            {!loading && data?.trending.songs.length > 0
+              ? data.trending.songs.map((song) => (
+                  <motion.div variants={item} key={song.id}>
+                    <SongCard
+                      id={song.id}
+                      title={song.name}
+                      artist={song.primaryArtists}
+                      image={song.image[2].url}
+                      data={data.trending.songs}
+                    />
+                  </motion.div>
+                ))
+              : Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
+                ))}
+          </motion.div>
+        </section>
+
+        {/* Top Albums */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Top Albums</h2>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate={!loading ? "show" : "hidden"}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+          >
+            {!loading && data?.albums.length > 0
+              ? data.albums.map((album) => (
+                  <motion.div variants={item} key={album.id}>
+                    <AlbumCard
+                      id={album.id}
+                      title={album.name}
+                      artist={album.artists[0]?.name}
+                      image={album.image[2].url}
+                    />
+                  </motion.div>
+                ))
+              : Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
+                ))}
+          </motion.div>
+        </section>
+
+        {/* Top Artists */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Top Artists</h2>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate={!loading ? "show" : "hidden"}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+          >
+            {!loading && data?.artists.length > 0
+              ? data.artists.map((artist) => (
+                  <motion.div variants={item} key={artist.id}>
+                    <ArtistCard
+                      id={artist.id}
+                      name={artist.name}
+                      image={artist.image[2].url}
+                    />
+                  </motion.div>
+                ))
+              : Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="w-full h-[250px] rounded-lg" />
+                ))}
+          </motion.div>
+        </section>
+      </div>
     </main>
-  )
-}
+  );
+} 
