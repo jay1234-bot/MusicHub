@@ -21,7 +21,7 @@ import Link from "next/link";
 import { NextContext } from "@/hooks/use-context";
 import Next from "@/components/cards/next";
 import { useMusic } from "@/components/music-provider";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Player({ id }) {
   const [data, setData] = useState([]);
@@ -202,49 +202,88 @@ export default function Player({ id }) {
             <div className="absolute bottom-0 left-0 right-0 top-0 bg-black/50 bg-[radial-gradient(circle_500px_at_50%_200px,#31303b,transparent)]"></div>
           </div>
           {data?.image && (
-            <img
-              src={data.image[2].url}
-              alt="song-bg"
-              className="absolute inset-0 -z-20 h-full w-full object-cover blur-3xl opacity-50"
-            />
+            <AnimatePresence>
+              <motion.img
+                key={data.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                src={data.image[2].url}
+                alt="song-bg"
+                className="absolute inset-0 -z-20 h-full w-full object-cover blur-3xl opacity-50"
+              />
+            </AnimatePresence>
           )}
 
           <div className="grid gap-6 w-full px-6 md:px-20 lg:px-32 py-8">
             <div className="grid md:grid-cols-2 gap-8 items-center">
               <div className="flex justify-center">
-                <motion.div
-                  animate={{ rotate: playing ? 360 : 0 }}
-                  transition={{
-                    duration: 15,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                  className="relative w-64 h-64 md:w-80 md:h-80"
-                >
-                  <img
-                    src={data.image[2].url}
-                    className="rounded-full w-full h-full object-cover shadow-2xl"
-                  />
-                </motion.div>
+                <AnimatePresence>
+                  <motion.div
+                    key={data.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1, rotate: playing ? 360 : 0 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{
+                      rotate: { duration: 15, repeat: Infinity, ease: "linear" },
+                      default: { type: "spring", stiffness: 300, damping: 20 },
+                    }}
+                    className="relative w-64 h-64 md:w-80 md:h-80"
+                  >
+                    <motion.div
+                      className="absolute inset-0 rounded-full"
+                      animate={{
+                        boxShadow: playing
+                          ? [
+                              "0 0 0 2px rgba(255, 255, 255, 0.1)",
+                              "0 0 0 4px rgba(255, 255, 255, 0.1)",
+                              "0 0 0 2px rgba(255, 255, 255, 0.1)",
+                            ]
+                          : "none",
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    />
+                    <img
+                      src={data.image[2].url}
+                      className="rounded-full w-full h-full object-cover shadow-2xl"
+                    />
+                  </motion.div>
+                </AnimatePresence>
               </div>
               <div className="flex flex-col justify-between w-full text-center md:text-left">
-                <div className="sm:mt-0 mt-3">
-                  <h1 className="text-3xl font-bold">{data.name}</h1>
-                  <p className="text-lg text-muted-foreground">
-                    by{" "}
-                    <Link
-                      href={
-                        "/search/" +
-                        `${encodeURI(
-                          data.artists.primary[0].name.toLowerCase().split(" ").join("+")
-                        )}`
-                      }
-                      className="text-foreground hover:underline"
-                    >
-                      {data.artists.primary[0]?.name || "unknown"}
-                    </Link>
-                  </p>
-                </div>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={data.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                    className="sm:mt-0 mt-3"
+                  >
+                    <h1 className="text-3xl font-bold">{data.name}</h1>
+                    <p className="text-lg text-muted-foreground">
+                      by{" "}
+                      <Link
+                        href={
+                          "/search/" +
+                          `${encodeURI(
+                            data.artists.primary[0].name
+                              .toLowerCase()
+                              .split(" ")
+                              .join("+")
+                          )}`
+                        }
+                        className="text-foreground hover:underline"
+                      >
+                        {data.artists.primary[0]?.name || "unknown"}
+                      </Link>
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
                 <div className="grid gap-4 w-full mt-8">
                   <Slider
                     onValueChange={handleSeek}
@@ -283,9 +322,9 @@ export default function Player({ id }) {
                       onClick={togglePlayPause}
                     >
                       {playing ? (
-                        <Pause className="h-8 w-8" />
+                        <Pause className="h-8 w-8 text-black" />
                       ) : (
-                        <Play className="h-8 w-8" />
+                        <Play className="h-8 w-8 fill-black" />
                       )}
                     </Button>
                     <Button
