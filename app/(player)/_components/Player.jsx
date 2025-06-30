@@ -10,15 +10,11 @@ import {
   Share2,
   RedoDot,
   UndoDot,
-  Music,
 } from "lucide-react";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import Link from "next/link";
-import { NextContext } from "@/hooks/use-context";
-import { useMusic } from "@/components/music-provider";
 import { motion, AnimatePresence } from "framer-motion";
 import { AudioVisualizer } from "react-audio-visualize";
 
@@ -31,8 +27,6 @@ export default function Player({ id }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
   const [audioURL, setAudioURL] = useState("");
-  const next = useContext(NextContext);
-  const { current, setCurrent } = useMusic();
   const visualizerRef = useRef(null);
 
   useEffect(() => {
@@ -55,24 +49,34 @@ export default function Player({ id }) {
   }, [id]);
 
   useEffect(() => {
-    if (audioRef.current) {
+    if (audioRef.current && data) {
+      const audio = audioRef.current;
+      
       const lastTime = localStorage.getItem(`pos-${id}`);
       if (lastTime) {
-        audioRef.current.currentTime = parseFloat(lastTime);
-        setCurrentTime(parseFloat(lastTime));
+        audio.currentTime = parseFloat(lastTime);
       }
-      if (current) {
-        audioRef.current.currentTime = parseFloat(current + 1);
-      }
-      const audio = audioRef.current;
+
       const handleTimeUpdate = () => {
         setCurrentTime(audio.currentTime);
         setDuration(audio.duration);
-        setCurrent(audio.currentTime);
         localStorage.setItem(`pos-${id}`, audio.currentTime);
       };
+      const handleLoadedData = () => {
+        setDuration(audio.duration);
+        if (localStorage.getItem("p") === "true") {
+          audio.play();
+          setPlaying(true);
+        }
+      }
+      
       audio.addEventListener("timeupdate", handleTimeUpdate);
-      return () => audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.addEventListener("loadeddata", handleLoadedData);
+
+      return () => {
+        audio.removeEventListener("timeupdate", handleTimeUpdate);
+        audio.removeEventListener("loadeddata", handleLoadedData);
+      }
     }
   }, [data]);
 
@@ -90,11 +94,10 @@ export default function Player({ id }) {
     if (!audioRef.current) return;
     if (playing) {
       audioRef.current.pause();
-      setPlaying(false);
     } else {
       audioRef.current.play();
-      setPlaying(true);
     }
+    setPlaying(!playing);
   };
 
   const loopSong = () => {
@@ -105,7 +108,7 @@ export default function Player({ id }) {
   };
 
   const downloadSong = async () => {
-    if (!audioURL) return toast("No audio to download");
+    if (!audioURL) return toast.error("Audio source not available for download.");
     setIsDownloading(true);
     try {
       const response = await fetch(audioURL);
@@ -114,70 +117,69 @@ export default function Player({ id }) {
       const a = document.createElement("a");
       a.style.display = "none";
       a.href = url;
-      a.download = `${data.name}.mp3`;
+      a.download = `${data.name || 'song'}.mp3`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      a.remove();
       toast.success("Download started!");
     } catch (e) {
       toast.error("Download failed!");
+      console.error(e);
     } finally {
       setIsDownloading(false);
     }
   };
 
   const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareData = {
+        title: data?.name,
+        text: `Listen to ${data?.name} by ${data?.artists?.primary[0]?.name}`,
+        url: shareUrl,
+    }
     try {
-      const shareUrl = window.location.href;
-      if (navigator.share) {
-        await navigator.share({
-          title: data.name,
-          text: `Listen to ${data.name} by ${data.artists.primary[0]?.name}`,
-          url: shareUrl,
-        });
+      if (navigator.share && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(shareUrl);
         toast.success("Link copied to clipboard!");
       }
     } catch (e) {
       toast.error("Share failed!");
+      console.error(e);
     }
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-[60vh] py-8">
+    <div className="relative flex flex-col items-center justify-center min-h-[70vh] py-8">
       <AnimatePresence>
         {!data ? (
-          <Skeleton className="w-full h-[350px] rounded-2xl" />
+          <Skeleton className="w-full max-w-xl h-[450px] rounded-2xl" />
         ) : (
           <motion.div
             key={data.id}
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-xl mx-auto flex flex-col items-center glassy rounded-2xl shadow-2xl p-6"
-            style={{ background: "rgba(30,30,40,0.7)", backdropFilter: "blur(16px)" }}
+            className="w-full max-w-xl mx-auto flex flex-col items-center bg-background/30 backdrop-blur-xl rounded-2xl shadow-2xl p-6 border border-white/10"
           >
-            {/* Album Art */}
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="relative w-40 h-40 rounded-2xl overflow-hidden shadow-lg mb-6"
+              className="relative w-48 h-48 rounded-2xl overflow-hidden shadow-lg mb-6"
             >
               <img
                 src={data.image[2].url}
-                alt="song-bg"
+                alt={data.name}
                 className="w-full h-full object-cover rounded-2xl"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             </motion.div>
-            {/* Song Info */}
             <div className="text-center mb-4">
-              <h1 className="text-2xl font-bold text-white drop-shadow-lg">{data.name}</h1>
-              <p className="text-base text-white/80 mt-1">{data.artists.primary[0]?.name}</p>
+              <h1 className="text-2xl font-bold drop-shadow-lg">{data.name}</h1>
+              <p className="text-base text-muted-foreground mt-1">{data.artists.primary[0]?.name}</p>
             </div>
-            {/* Visualizer */}
             <div className="w-full h-14 flex items-center justify-center mb-2">
               {audioRef.current && (
                 <AudioVisualizer
@@ -192,7 +194,6 @@ export default function Player({ id }) {
                 />
               )}
             </div>
-            {/* Seekbar */}
             <div className="w-full flex flex-col gap-1 mb-2">
               <Slider
                 onValueChange={(e) => (audioRef.current.currentTime = e[0])}
@@ -200,68 +201,33 @@ export default function Player({ id }) {
                 max={duration || 0}
                 className="w-full"
               />
-              <div className="w-full flex items-center justify-between text-xs text-white/50">
+              <div className="w-full flex items-center justify-between text-xs text-muted-foreground">
                 <span>{formatTime(currentTime)}</span>
                 <span>{formatTime(duration || 0)}</span>
               </div>
             </div>
-            {/* Controls */}
             <div className="flex items-center justify-center gap-6 mt-2 mb-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => (audioRef.current.currentTime -= 10)}
-                aria-label="Rewind 10 seconds"
-              >
-                <UndoDot className="h-7 w-7 text-white/70" />
+              <Button variant="ghost" size="icon" onClick={() => (audioRef.current.currentTime -= 10)} >
+                <UndoDot className="h-7 w-7" />
               </Button>
               <motion.div whileTap={{ scale: 0.9 }}>
-                <Button
-                  size="icon"
-                  className="rounded-full w-16 h-16 bg-white text-black shadow-xl hover:bg-white/90"
-                  onClick={togglePlayPause}
-                  aria-label={playing ? "Pause" : "Play"}
-                >
-                  {playing ? (
-                    <Pause className="h-8 w-8" />
-                  ) : (
-                    <Play className="h-8 w-8 ml-1" />
-                  )}
+                <Button size="icon" className="rounded-full w-16 h-16 bg-primary text-primary-foreground shadow-xl hover:bg-primary/90" onClick={togglePlayPause} >
+                  {playing ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-1" />}
                 </Button>
               </motion.div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => (audioRef.current.currentTime += 10)}
-                aria-label="Forward 10 seconds"
-              >
-                <RedoDot className="h-7 w-7 text-white/70" />
+              <Button variant="ghost" size="icon" onClick={() => (audioRef.current.currentTime += 10)} >
+                <RedoDot className="h-7 w-7" />
               </Button>
             </div>
-            {/* Extra Controls */}
             <div className="flex justify-center items-center gap-6 mt-2">
-              <Button variant="ghost" size="icon" onClick={loopSong} aria-label="Loop">
-                <Repeat
-                  className={`h-6 w-6 transition-colors ${
-                    isLooping ? "text-primary" : "text-white/70"
-                  }`}
-                />
+              <Button variant="ghost" size="icon" onClick={loopSong}>
+                <Repeat className={`h-6 w-6 transition-colors ${ isLooping ? "text-primary" : "text-muted-foreground" }`} />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={downloadSong}
-                disabled={isDownloading}
-                aria-label="Download"
-              >
-                {isDownloading ? (
-                  <Loader2 className="h-6 w-6 text-white/70 animate-spin" />
-                ) : (
-                  <Download className="h-6 w-6 text-white/70" />
-                )}
+              <Button variant="ghost" size="icon" onClick={downloadSong} disabled={isDownloading} >
+                {isDownloading ? ( <Loader2 className="h-6 w-6 animate-spin" /> ) : ( <Download className="h-6 w-6" /> )}
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleShare} aria-label="Share">
-                <Share2 className="h-6 w-6 text-white/70" />
+              <Button variant="ghost" size="icon" onClick={handleShare}>
+                <Share2 className="h-6 w-6" />
               </Button>
             </div>
           </motion.div>
@@ -272,8 +238,6 @@ export default function Player({ id }) {
         crossOrigin="anonymous"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        onLoadedData={() => setDuration(audioRef.current?.duration || 0)}
-        autoPlay={playing}
         src={audioURL}
         ref={audioRef}
       ></audio>
